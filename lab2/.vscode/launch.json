@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "C/C++ Runner: Debug Session",
+      "type": "lldb",
+      "request": "launch",
+      "args": [],
+      "cwd": "/Users/liuvivian/Library/Mobile Documents/com~apple~CloudDocs/Study/大三上/网络技术/lab2",
+      "program": "/Users/liuvivian/Library/Mobile Documents/com~apple~CloudDocs/Study/大三上/网络技术/lab2/build/Debug/outDebug"
+    }
+  ]
+}
