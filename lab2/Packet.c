@@ -2,12 +2,13 @@
 #include <pcap.h>
 
 void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
-    // Ethernet 帧
+    // 检查数据包是否太短
     if (pkthdr->caplen < 14) {
         printf("Packet too short to extract MAC addresses and type/length field.\n");
         return;
     }
 
+    // 提取源MAC地址、目的MAC地址和类型/长度字段
     const u_char *mac_src = packet + 6;
     const u_char *mac_dest = packet;
     u_short *type_length = (u_short *)(packet + 12);
@@ -47,7 +48,7 @@ int main() {
     //     return 1;
     // }
 
-    // Check if the device provides Ethernet headers
+    // 检查数据链路层是否为以太网
     if (pcap_datalink(handle) != DLT_EN10MB) {
         printf("Device does not provide Ethernet headers.\n");
         pcap_close(handle);
