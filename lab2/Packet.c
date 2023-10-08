@@ -33,7 +33,7 @@ int main() {
         printf("No devices found.\n");
         return 1;
     }
-    dev = alldevs->name;  // Use the first device
+    dev = alldevs->name;  // 获取第一个网络设备的名称
 
     // 打开指定的网络设备并监听
     handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
