@@ -24,7 +24,6 @@ struct ip_header // IP首部
     uint32_t DstIP;        // 32位目的IP地址
 };
 
-void analysis_IP(u_char *user_data, const struct pcap_pkthdr *pkInfo, const u_char *packet);       // 抓包函数的回调函数handler IP包头分析
-void analysis_Ethernet(u_char *user_data, const struct pcap_pkthdr *pkInfo, const u_char *packet); // 抓包函数的回调函数handler IP包头分析
-void showDevice();                                                                                 // 显示设备
+void analysis_ip(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet);     // 抓包函数的回调函数handler IP包头分析
+void analysis_ether(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet); // 抓包函数的回调函数handler IP包头分析                                                                          // 显示设备
 void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet);

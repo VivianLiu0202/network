@@ -30,7 +30,13 @@ void print_binary(uint16_t value, int bits) {
     printf("\n");
 }
 
-void showIPPacket(struct ip_header* iphdr) {
+void analysis_ip(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
+    // 参数解释
+    //  user_data传递用户定义的数据到回调函数中，通常用不到
+    //  pkInfo保存了此数据包的时间信息和长度信息
+    //  packet是数据包的内容
+    struct ip_header *iphdr;
+    iphdr = (struct ip_header *)(packet + 14); // 获取IP头，14 是因为以太网帧头部通常是 14 字节
     printf("===========开始解析IP层数据包========== \n");
     printf("版本号: %d\n", (iphdr->Ver_HLen >> 4));
     printf("首部长度: %d\n", (iphdr->Ver_HLen & 0x0F) * 4);
@@ -64,9 +70,9 @@ void showIPPacket(struct ip_header* iphdr) {
     printf("总长度: %d\n", ntohs(iphdr->TotalLen));
     printf("标识: %d\n", ntohs(iphdr->ID));
     printf("标志: ");
-    print_binary(ntohs(iphdr->Flag_Segment) >> 10, 6);
-    printf("对应标志: URG、ACK、PSH、RST、SYN 和 FIN 六个标志位。\n");
-    printf("片偏移: %d\n", (ntohs(iphdr->Flag_Segment) & 0x1FFF));
+    print_binary(ntohs(iphdr->Flag_Segment) >> 13, 3);
+    printf("对应标志: 保留位、DF、MF。\n");
+    printf("片偏移: %d\n", (ntohs(iphdr->Flag_Segment) & 0x1FFF)); // 0x1FFF = 0001 1111 1111 1111，取后13位
     printf("生存时间: %d\n", (int)iphdr->TTL);
     printf("协议编号: %d\n", (int)iphdr->Protocol);
     switch ((int)iphdr->Protocol) {
@@ -98,21 +104,14 @@ void showIPPacket(struct ip_header* iphdr) {
     printf("首部校验和: %d\n", ntohs(iphdr->Checksum));
     printf("源IP地址: %s\n", inet_ntoa(*(struct in_addr *)&iphdr->SrcIP));
     printf("目的IP地址: %s\n", inet_ntoa(*(struct in_addr *)&iphdr->DstIP));
-    printf("===========完成IP层数据包解析======== \n\n");
+    printf("===========完成IP层数据包解析======== \n\n"); 
 }
 
-void analysis_ip(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
-    // 参数解释
-    //  user_data传递用户定义的数据到回调函数中，通常用不到
-    //  pkInfo保存了此数据包的时间信息和长度信息
-    //  packet是数据包的内容
-    struct ip_header *ip_protocol;
-    ip_protocol = (struct ip_header *)(packet + 14); // 获取IP头，14 是因为以太网帧头部通常是 14 字节
-    showIPPacket(ip_protocol);
-}
 
-void showEtherPacket(struct ether_header* ethhdr) {
-    uint16_t type = ntohs(ethhdr->Ethernet_Type);
+void analysis_ether(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
+    struct ether_header *ethhdr;
+    ethhdr = (struct ether_header *)packet; // 获取以太网帧头部
+        uint16_t type = ntohs(ethhdr->Ethernet_Type);
     printf("===========开始解析以太网帧数据包======== \n");
     printf("目的MAC地址: %02x:%02x:%02x:%02x:%02x:%02x\n", 
             ethhdr->Ethernet_Dhost[0], ethhdr->Ethernet_Dhost[1], ethhdr->Ethernet_Dhost[2], 
@@ -124,12 +123,13 @@ void showEtherPacket(struct ether_header* ethhdr) {
     switch (type) {
     case 0x0800:
         printf("以太网类型: IP\n");
+        analysis_ip(user_data, pkthdr, packet);
         break;
     case 0x0806:
         printf("以太网类型: ARP\n");
         break;
     case 0x8035:
-        printf("以太网类型: RARP\n");
+        printf("以太网类型: RARP\n");// RARP 数据包 (反向地址解析协议)
         break;
     case 0x86DD:
         printf("以太网类型: IPv6\n");
@@ -139,12 +139,6 @@ void showEtherPacket(struct ether_header* ethhdr) {
         break;
     }
     printf("===========完成以太网帧数据包解析======== \n\n");
-}
-
-void analysis_ether(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet){
-    struct ether_header *ethhdr;
-    ethhdr = (struct ether_header *)packet; // 获取以太网帧头部
-    showEtherPacket(ethhdr);
 }
 void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u_char *packet) {
     // 定义以太网和IP头的最小总长度
@@ -158,17 +152,16 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u
         return;
     }
     analysis_ether(user_data, pkthdr, packet);
-    analysis_ip(user_data, pkthdr, packet);
 }
 
 int main() {
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t *handle;
-    char *dev;
+    char errbuf[PCAP_ERRBUF_SIZE];//用于存储任何与pcap函数相关的错误消息
+    pcap_t *handle;// pcap_t是一个结构体，用于存储抓包的会话信息
 
     // 获取本地机器上所有网络设备的列表
-    pcap_if_t *alldevs;
+    pcap_if_t *alldevs;// pcap_if_t是一个结构体，用于存储所有可用的网络设备列表
     if (pcap_findalldevs(&alldevs, errbuf) == -1) {
+        //pcap_findalldevs 函数获取本地机器上所有可用的网络设备列表，并将其存储在 alldevs 中
         printf("Error finding devices: %s\n", errbuf);
         return 1;
     }
@@ -176,20 +169,25 @@ int main() {
         printf("No devices found.\n");
         return 1;
     }
-    dev = alldevs->name;  // 获取第一个网络设备的名称
+    char *dev;
+    dev = alldevs->name;
 
-    // 打开指定的网络设备并监听
-    // handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
-    // if (handle == NULL) {
-    //     printf("Error opening device: %s\n", errbuf);
-    //     return 1;
-    // }
-    //这是使用wireshark的测试用例
-    handle = pcap_open_offline("test.pcap", errbuf);
-    if(handle == NULL){
-        printf("Error opening file: %s\n", errbuf);
+    /**
+     * 使用 pcap_open_live 函数打开指定的网络设备并开始监听。
+     * BUFSIZ 是捕获的最大字节数
+     * 1 表示将设备设置为混杂模式，1000 是读取超时（以毫秒为单位）。
+    */
+    handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
+    if (handle == NULL) {
+        printf("Error opening device: %s\n", errbuf);
         return 1;
     }
+    //这是使用wireshark的测试用例
+    // handle = pcap_open_offline("test.pcap", errbuf);
+    // if(handle == NULL){
+    //     printf("Error opening file: %s\n", errbuf);
+    //     return 1;
+    // }
 
     // 检查数据链路层是否为以太网
     if (pcap_datalink(handle) != DLT_EN10MB) {
@@ -198,7 +196,12 @@ int main() {
         return 1;
     }
 
-    // 捕获数据包并调用指定的回调函数packet_handler进行处理。
+    /** 捕获数据包并调用指定的回调函数packet_handler进行处理。
+     *  pcap_t *p，该结构包含了捕获数据包所需的所有信息
+     * int cnt: 整数，指定了要捕获的数据包数量。如果设置为负数，pcap_loop 将会无限循环，直到发生错误或者调用 pcap_breakloop。
+     * pcap_handler callback:回调函数，它会在每个捕获到的数据包上被调用。这个回调函数必须具有 pcap_handler 类型的签名
+     * 
+     */
     pcap_loop(handle, 0, packet_handler, NULL);
 
     // 关闭已打开的网络设备并释放资源
