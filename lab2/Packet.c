@@ -1,7 +1,7 @@
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <stdint.h> // uint16_t
 #include <arpa/inet.h>
 #include <netinet/in.h> // in_addr
 #include "Packet.h"
