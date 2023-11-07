@@ -7,8 +7,8 @@
 #include <iostream>
 #include <netinet/tcp.h>
 #include <string>
-#include <memory>
-#include <stdexcept>
+#include <memory> // for std::unique_ptr
+#include <stdexcept> // for runtime_error
 #include <array>
 using namespace std;
 
@@ -51,9 +51,7 @@ void send_arp_request(pcap_t *adhandle,in_addr local_ip,u_char *local_mac,in_add
 	}
 	memcpy(arp->SenderProtocolAddress,&local_ip.s_addr,4);
 	memcpy(arp->TargetProtocolAddress,&target_ip.s_addr,4);
-	// if(pcap_sendpacket(adhandle,packet,sizeof(packet))!=0){
-	// 	std::cerr << "Error sending the packet: " << pcap_geterr(adhandle) << std::endl;
-	// }
+
 	int result = pcap_sendpacket(adhandle,packet,sizeof(packet));
 	if(result == -1){
 		printf("发送失败!\n");
@@ -216,11 +214,8 @@ int main(){
 			// printf("%s\n",temp);
 			// printf("\n");
 			if(ntohs(neweth->ether_type) == 0x0806 && ntohs(newarp->Operation) == 0x0002 
-				// && newarp->TargetProtocolAddress == arp.SenderProtocolAddress){
 				&& memcmp(newarp->TargetProtocolAddress,arp.SenderProtocolAddress,4) == 0){
 				printf("本机的MAC地址如下:\n");
-				// memcpy(myMAC,newarp->SenderHardwareAddress,6);
-				// printf("%s",myMAC);
 				for(int i=0;i<6;i++){
 					myMAC[i] = newarp->TargetHardwareAddress[i];
 					printf("%02x",myMAC[i]);
@@ -232,25 +227,28 @@ int main(){
 		}
 	}
 
-	printf("请输入目标IP地址:\n");
-	char target_ip_str[20];
-	scanf("%s",target_ip_str);
-	in_addr target_ip;
-	inet_pton(AF_INET,target_ip_str,&target_ip);
-	u_char target_mac[6];
-	send_arp_request(adhandle,local_ip,myMAC,target_ip);
-	if(receive_arp_response(adhandle,target_ip,target_mac)){
-		printf("目标MAC地址如下:\n");
-		for(int i=0;i<6;i++){
-			printf("%02x",target_mac[i]);
-			if(i<5) printf(":");
+	while(1){
+		printf("请输入目标IP地址:\n");
+		char target_ip_str[20];
+		scanf("%s",target_ip_str);
+		if(strcmp(target_ip_str,"exit") == 0) break;
+		in_addr target_ip;
+		inet_pton(AF_INET,target_ip_str,&target_ip);
+		u_char target_mac[6];
+		send_arp_request(adhandle,local_ip,myMAC,target_ip);
+		if(receive_arp_response(adhandle,target_ip,target_mac)){
+			printf("目标MAC地址如下:\n");
+			for(int i=0;i<6;i++){
+				printf("%02x",target_mac[i]);
+				if(i<5) printf(":");
+			}
+			printf("\n");
 		}
-		printf("\n");
+		else{
+			printf("未收到ARP响应!\n");
+		}
 	}
-	else{
-		printf("未收到ARP响应!\n");
-	}
-
-
+	pcap_close(adhandle);
+	pcap_freealldevs(alldevs);
 	return 0;
 }
